@@ -24,9 +24,20 @@ import type { BoardCell, MoveDetail, PieceType, SquareColor } from '@/lib/chess/
 const WHITE_BURST = 0xece1cc
 const BLACK_BURST = 0x3a352f
 
+/** Reported while an environment downloads / applies. */
+export interface EnvStatus {
+  status: 'loading' | 'ready' | 'failed'
+  label: string
+  /** 0–100 during download; null = indeterminate */
+  pct: number | null
+  fromCache: boolean
+}
+
 export class ChessScene {
   backend: 'webgpu' | 'webgl2' = 'webgl2'
   onSquareClick: ((square: string) => void) | null = null
+  /** Progress sink for the pre-match download overlay (set by ChessCanvas). */
+  onEnvProgress: ((status: EnvStatus) => void) | null = null
 
   private canvas: HTMLCanvasElement
   private renderer: THREE.WebGPURenderer
@@ -47,6 +58,7 @@ export class ChessScene {
   private envEquirects = new Map<string, THREE.Texture>()
   private envId: string | null = null
   private envLoadToken = 0
+  private menuBackground = new THREE.Color('#0d0b09')
 
   private elapsed = 0
   private downPos = { x: 0, y: 0 }
@@ -141,29 +153,49 @@ export class ChessScene {
     if (process.env.NODE_ENV !== 'production') {
       ;(window as unknown as { __chessScene?: ChessScene }).__chessScene = this
     }
-    // Random HDRI backdrop — loads lazily, RoomEnvironment stays until it lands
-    this.randomizeEnvironment()
+    // NOTE: environments intentionally do NOT load here — the main menu stays
+    // backdrop-free. randomizeEnvironment() is called when a match starts.
   }
 
   /**
    * Picks a random environment (never the current one) and applies it as
-   * both the IBL environment and the sharp background. Decoded textures are
-   * cached per scene instance, so later switches are instant and fetches hit
-   * the browser HTTP cache. Falls back silently to the built-in
+   * both the IBL environment and the sharp background. Files are cached in
+   * Cache Storage after the first download, so this is instant for any
+   * previously seen environment. Falls back silently to the built-in
    * RoomEnvironment.
    */
   randomizeEnvironment(): void {
     void this.applyRandomEnvironment()
   }
 
+  /**
+   * Back to the backdrop-free state (main menu). In-flight loads are
+   * cancelled; decoded textures and PMREM targets stay cached for instant
+   * reuse in the next match.
+   */
+  clearEnvironment(): void {
+    this.envLoadToken++
+    this.envId = null
+    this.scene.background = this.menuBackground
+    this.scene.backgroundBlurriness = 0
+    if (this.envTexture) this.scene.environment = this.envTexture
+    delete this.canvas.dataset.env
+  }
+
   private async applyRandomEnvironment(): Promise<void> {
     const next = pickRandomEnv(this.envId)
     const token = ++this.envLoadToken
+    const report = (status: EnvStatus) => {
+      if (token === this.envLoadToken && !this.disposed) this.onEnvProgress?.(status)
+    }
+    report({ status: 'loading', label: next.label, pct: null, fromCache: false })
     try {
       let target = this.envTargets.get(next.id)
       let equirect = this.envEquirects.get(next.id)
       if (!target || !equirect) {
-        const loaded = await loadEquirect(next.id)
+        const loaded = await loadEquirect(next.id, ({ pct, fromCache }) =>
+          report({ status: 'loading', label: next.label, pct, fromCache }),
+        )
         if (this.disposed || token !== this.envLoadToken || !this.rendererAlive()) {
           loaded.dispose()
           return
@@ -199,8 +231,10 @@ export class ChessScene {
       // push it a bit so skies keep their punch next to the lit board
       this.scene.backgroundIntensity = 1.25
       this.canvas.dataset.env = next.id
+      report({ status: 'ready', label: next.label, pct: 100, fromCache: true })
     } catch (err) {
       console.warn(`[env] failed to load "${next.id}":`, err)
+      report({ status: 'failed', label: next.label, pct: null, fromCache: false })
     }
   }
 
