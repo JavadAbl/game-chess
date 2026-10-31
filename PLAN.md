@@ -61,7 +61,8 @@
 validates against cached legal moves → chess.js `move()` → store updates
 (`fen`, verbose `lastMoveDetail`, `moveSeq++`) → scene animates the diff →
 SFX fires → if AI's turn, FEN is posted to the worker → best move comes back →
-same store path.
+same store path. Deselect: right-click the selected piece or press Escape
+(both route through `store.deselect`).
 
 **Data flow (online):** identical, but `game:move` first goes to the server,
 which re-validates with its own chess.js instance and fans out to both
@@ -106,9 +107,9 @@ accurate.
 
 ### Phase 3 — Interaction
 Pointer click vs orbit-drag disambiguation; raycast select/act; selection,
-legal-move dots, capture rings, last-move and check highlights; slide/arc move
-animations incl. castling rook, en-passant pawn removal, promotion swap;
-promotion dialog.
+legal-move dots, capture rings, last-move and check highlights; deselect via
+right-click on the piece or Escape; slide/arc move animations incl. castling
+rook, en-passant pawn removal, promotion swap; promotion dialog.
 **Exit:** a full game can be played hot-seat purely through the 3D board.
 
 ### Phase 4 — Modes

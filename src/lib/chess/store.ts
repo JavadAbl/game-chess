@@ -105,6 +105,7 @@ interface ChessState {
   requestRematch: () => void
 
   onSquareClick: (square: string) => void
+  deselect: () => void
   choosePromotion: (piece: PieceType) => void
   cancelPromotion: () => void
   undo: () => void
@@ -389,6 +390,14 @@ export const useChessStore = create<ChessState>()((set, get) => ({
 
     // Clicked elsewhere — deselect
     if (state.selected) set({ selected: null, legalTargets: [] })
+  },
+
+  /** Clears the active selection (right-click on the piece / Escape). */
+  deselect: () => {
+    const state = get()
+    if (state.pendingPromotion) return // the promotion dialog owns cancel/ESC
+    if (!state.selected) return
+    set({ selected: null, legalTargets: [] })
   },
 
   choosePromotion: (piece: PieceType) => {

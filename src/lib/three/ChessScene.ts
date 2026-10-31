@@ -36,6 +36,8 @@ export interface EnvStatus {
 export class ChessScene {
   backend: 'webgpu' | 'webgl2' = 'webgl2'
   onSquareClick: ((square: string) => void) | null = null
+  /** Fired when the player right-clicks the selected piece or presses Escape. */
+  onDeselect: (() => void) | null = null
   /** Progress sink for the pre-match download overlay (set by ChessCanvas). */
   onEnvProgress: ((status: EnvStatus) => void) | null = null
 
@@ -130,6 +132,8 @@ export class ChessScene {
     canvas.addEventListener('pointerup', this.onPointerUp)
     canvas.addEventListener('pointermove', this.onPointerMove)
     canvas.addEventListener('pointerleave', this.onPointerLeave)
+    canvas.addEventListener('contextmenu', this.onContextMenu)
+    window.addEventListener('keydown', this.onKeyDown)
 
     const parent = canvas.parentElement
     if (parent && typeof ResizeObserver !== 'undefined') {
@@ -300,6 +304,24 @@ export class ChessScene {
     if (e.pointerType === 'mouse' && e.button !== 0) return
     const square = this.pickSquare(e.clientX, e.clientY)
     if (square) this.onSquareClick?.(square)
+  }
+
+  // Right-click on the selected piece clears the selection. The drag guard
+  // (downPos comes from the right-button pointerdown) keeps an aborted
+  // right-drag orbit gesture from deselecting as a side effect. OrbitControls
+  // already suppresses the browser context menu on the canvas.
+  private onContextMenu = (e: MouseEvent): void => {
+    e.preventDefault()
+    if (!this.selectedSq) return
+    const dx = e.clientX - this.downPos.x
+    const dy = e.clientY - this.downPos.y
+    if (Math.hypot(dx, dy) > 8) return
+    const square = this.pickSquare(e.clientX, e.clientY)
+    if (square === this.selectedSq) this.onDeselect?.()
+  }
+
+  private onKeyDown = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape' && this.selectedSq) this.onDeselect?.()
   }
 
   private onPointerMove = (e: PointerEvent): void => {
@@ -533,6 +555,8 @@ export class ChessScene {
     this.canvas.removeEventListener('pointerup', this.onPointerUp)
     this.canvas.removeEventListener('pointermove', this.onPointerMove)
     this.canvas.removeEventListener('pointerleave', this.onPointerLeave)
+    this.canvas.removeEventListener('contextmenu', this.onContextMenu)
+    window.removeEventListener('keydown', this.onKeyDown)
     this.resizeObserver?.disconnect()
     this.controls.dispose()
     this.bursts.dispose()

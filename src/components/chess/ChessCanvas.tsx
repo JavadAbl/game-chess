@@ -38,6 +38,7 @@ export default function ChessCanvas() {
     const scene = new ChessScene(canvas)
     sceneRef.current = scene
     scene.onSquareClick = (sq) => useChessStore.getState().onSquareClick(sq)
+    scene.onDeselect = () => useChessStore.getState().deselect()
     scene.onEnvProgress = (status) => {
       // The overlay hides itself once the environment is applied (or fell back).
       setEnv(status.status === 'loading' ? status : null)
