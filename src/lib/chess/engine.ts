@@ -50,6 +50,23 @@ export function legalTargetsFrom(square: string): string[] {
   return movesFrom(square).map((m) => m.to)
 }
 
+/**
+ * Every square holding a `color` piece with at least one legal move — the
+ * beginner-mode "these pieces can move" glow. chess.js only generates moves
+ * for the side to move, so a request for any other color yields [].
+ */
+export function movableSquares(color: SquareColor): string[] {
+  if (chess.turn() !== color) return []
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const m of chess.moves({ verbose: true }) as Move[]) {
+    if (m.color !== color || seen.has(m.from)) continue
+    seen.add(m.from)
+    out.push(m.from)
+  }
+  return out
+}
+
 /** True if any legal move from→to is a promotion (i.e. the dialog must open). */
 export function isPromotionPath(from: string, to: string): boolean {
   return movesFrom(from).some((m) => m.to === to && m.flags.includes('p'))

@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { ChessScene, type EnvStatus } from '@/lib/three/ChessScene'
-import { boardSnapshot } from '@/lib/chess/engine'
+import { boardSnapshot, movableSquares } from '@/lib/chess/engine'
 import { useChessStore } from '@/lib/chess/store'
+import type { SquareColor } from '@/lib/chess/types'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -83,6 +84,30 @@ export default function ChessCanvas() {
   useEffect(() => {
     if (ready) sceneRef.current?.setCheckSquare(checkSquare)
   }, [checkSquare, ready])
+
+  // Beginner hints — a soft glow under every piece the local player can
+  // legally move (for their side only: the side to move in local duels,
+  // White in AI games, myColor online). A plain store subscription keeps
+  // this in lockstep with every state change (moves, undos, AI replies,
+  // toggles) without effect-dependency churn.
+  useEffect(() => {
+    const scene = sceneRef.current
+    if (!scene || !ready) return
+    const sync = () => {
+      const st = useChessStore.getState()
+      if (!st.beginnerMode || st.phase !== 'playing') {
+        scene.setMovableHints([])
+        return
+      }
+      let mine: SquareColor | null = null
+      if (st.mode === 'local') mine = st.turn
+      else if (st.mode === 'ai') mine = st.turn === 'w' && !st.aiThinking ? 'w' : null
+      else if (st.myColor && st.turn === st.myColor) mine = st.myColor
+      scene.setMovableHints(mine ? movableSquares(mine) : [])
+    }
+    sync()
+    return useChessStore.subscribe(sync)
+  }, [ready])
 
   useEffect(() => {
     if (ready) sceneRef.current?.setOrientation(orientation)

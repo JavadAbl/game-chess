@@ -90,6 +90,8 @@ interface ChessState {
   // ui
   pendingPromotion: { from: string; to: string } | null
   soundOn: boolean
+  /** Beginner mode: glow every piece of the local player's side that has a legal move. */
+  beginnerMode: boolean
   backend: 'webgpu' | 'webgl2' | null
   gpuSupported: boolean | null
 
@@ -120,6 +122,7 @@ interface ChessState {
   restoreOnlineSession: (args: RestoreSessionArgs) => void
 
   toggleSound: () => void
+  toggleBeginner: () => void
   setBackend: (b: 'webgpu' | 'webgl2') => void
   setGpuSupported: (v: boolean) => void
   flipOrientation: () => void
@@ -177,6 +180,16 @@ function clearSession(): void {
   }
 }
 
+const BEGINNER_KEY = 'gm3d.beginner'
+
+function readBeginnerPref(): boolean {
+  try {
+    return typeof window !== 'undefined' && window.localStorage.getItem(BEGINNER_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
 export const useChessStore = create<ChessState>()((set, get) => ({
   phase: 'menu',
   mode: 'local',
@@ -211,6 +224,10 @@ export const useChessStore = create<ChessState>()((set, get) => ({
 
   pendingPromotion: null,
   soundOn: true,
+  // SSR-safe start: the persisted preference is applied after mount by
+  // hydrateBeginnerPref() — reading localStorage during module init would
+  // make the server-rendered switch mismatch its hydrated state.
+  beginnerMode: false,
   backend: null,
   gpuSupported: null,
 
@@ -522,6 +539,17 @@ export const useChessStore = create<ChessState>()((set, get) => ({
     set({ soundOn: next })
     setMuted(!next)
   },
+  /** Beginner hints persist across sessions so learners keep their glow. */
+  toggleBeginner: () => {
+    const next = !get().beginnerMode
+    set({ beginnerMode: next })
+    try {
+      window.localStorage.setItem(BEGINNER_KEY, next ? '1' : '0')
+    } catch {
+      /* storage optional */
+    }
+    sfx.click()
+  },
   setBackend: (b) => set({ backend: b }),
   setGpuSupported: (v) => set({ gpuSupported: v }),
   flipOrientation: () => {
@@ -531,6 +559,18 @@ export const useChessStore = create<ChessState>()((set, get) => ({
 }))
 
 // ── helpers that need set/get ─────────────────────────────────
+
+/**
+ * Applies the persisted beginner preference once, after React has hydrated.
+ * Called from a ChessApp mount effect; the subscription in ChessCanvas picks
+ * the change up and paints the hints without any further wiring.
+ */
+export function hydrateBeginnerPref(): void {
+  const pref = readBeginnerPref()
+  if (pref !== useChessStore.getState().beginnerMode) {
+    useChessStore.setState({ beginnerMode: pref })
+  }
+}
 
 type SetState = (partial: Partial<ChessState> | ((s: ChessState) => Partial<ChessState>)) => void
 type GetState = () => ChessState

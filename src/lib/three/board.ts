@@ -10,6 +10,8 @@ export const TINTS = {
   lastMove: { color: 0xe8a33d, intensity: 0.3 },
   hover: { color: 0xf5e6c8, intensity: 0.22 },
   check: { color: 0xe23d3d, intensity: 0.5 },
+  /** Beginner mode: soft cool glow on pieces that currently have a legal move. */
+  hint: { color: 0x54cfe0, intensity: 0.3 },
 } as const
 
 export interface BoardBuild {

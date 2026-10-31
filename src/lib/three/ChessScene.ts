@@ -68,6 +68,8 @@ export class ChessScene {
   private hovered: string | null = null
   private selectedSq: string | null = null
   private targetSqs: string[] = []
+  /** Beginner mode: squares holding pieces with at least one legal move. */
+  private movableSqs: string[] = []
   private lastMoveSqs: { from: string; to: string } | null = null
   private checkSq: string | null = null
   private disposed = false
@@ -353,6 +355,9 @@ export class ChessScene {
 
   private refreshTints(): void {
     this.board.resetTints()
+    for (const sq of this.movableSqs) {
+      if (sq !== this.selectedSq) this.board.tint(sq, TINTS.hint.color, TINTS.hint.intensity)
+    }
     if (this.lastMoveSqs) {
       this.board.tint(this.lastMoveSqs.from, TINTS.lastMove.color, TINTS.lastMove.intensity)
       this.board.tint(this.lastMoveSqs.to, TINTS.lastMove.color, TINTS.lastMove.intensity)
@@ -378,6 +383,15 @@ export class ChessScene {
       else quiet.push(t)
     }
     this.board.showMarkers(quiet, captures)
+    this.refreshTints()
+  }
+
+  /**
+   * Beginner mode: soft glow under every piece the local player can legally
+   * move. Lowest tint layer — last-move / check / selection override it.
+   */
+  setMovableHints(squares: string[]): void {
+    this.movableSqs = squares
     this.refreshTints()
   }
 

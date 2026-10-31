@@ -12,6 +12,7 @@ import {
   Trophy,
   Loader2,
   Handshake,
+  GraduationCap,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useChessStore } from '@/lib/chess/store'
@@ -94,6 +95,7 @@ export default function GameHUD() {
   const aiThinking = useChessStore((s) => s.aiThinking)
   const aiLevel = useChessStore((s) => s.aiLevel)
   const soundOn = useChessStore((s) => s.soundOn)
+  const beginnerMode = useChessStore((s) => s.beginnerMode)
   const myColor = useChessStore((s) => s.myColor)
   const opponentOnline = useChessStore((s) => s.opponentOnline)
   const rematchMe = useChessStore((s) => s.rematchMe)
@@ -238,6 +240,21 @@ export default function GameHUD() {
         >
           {soundOn ? <Volume2 className="mr-1 h-4 w-4" aria-hidden /> : <VolumeX className="mr-1 h-4 w-4" aria-hidden />}
           {soundOn ? 'Sound' : 'Muted'}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className={`col-span-2 ${
+            beginnerMode
+              ? 'border-emerald-500/60 bg-emerald-900/30 text-emerald-200 hover:bg-emerald-900/40'
+              : 'border-amber-900/60 text-amber-100 hover:bg-amber-900/40'
+          }`}
+          onClick={() => useChessStore.getState().toggleBeginner()}
+          aria-pressed={beginnerMode}
+          title="Beginner mode: glowing squares mark every piece you can legally move; dots and rings show where it can go"
+        >
+          <GraduationCap className="mr-1 h-4 w-4" aria-hidden />
+          Beginner hints {beginnerMode ? 'on' : 'off'}
         </Button>
         {mode === 'online' ? (
           <>

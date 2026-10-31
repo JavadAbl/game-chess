@@ -9,7 +9,7 @@ import ModeSelect from '@/components/chess/ModeSelect'
 import GameHUD from '@/components/chess/GameHUD'
 import PromotionDialog from '@/components/chess/PromotionDialog'
 import ResultDialog from '@/components/chess/ResultDialog'
-import { useChessStore } from '@/lib/chess/store'
+import { useChessStore, hydrateBeginnerPref } from '@/lib/chess/store'
 import { bindOnlineEvents } from '@/lib/net/online'
 import { unlockAudio } from '@/lib/audio/sfx'
 import { Toaster } from '@/components/ui/sonner'
@@ -32,6 +32,9 @@ export default function ChessApp() {
   const roomCode = useChessStore((s) => s.roomCode)
 
   useEffect(() => {
+    // Beginner preference lives in localStorage — apply it after hydration
+    // so the server-rendered switch never mismatches its client state.
+    hydrateBeginnerPref()
     bindOnlineEvents()
     const unlock = () => unlockAudio()
     window.addEventListener('pointerdown', unlock, { once: true })

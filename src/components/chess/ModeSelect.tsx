@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { Bot, Globe, Users, Copy, Loader2, Crown, Dices } from 'lucide-react'
+import { Bot, Globe, Users, Copy, Loader2, Crown, Dices, GraduationCap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useChessStore } from '@/lib/chess/store'
@@ -27,6 +28,7 @@ export default function ModeSelect() {
   const roomCode = useChessStore((s) => s.roomCode)
   const onlineStatus = useChessStore((s) => s.onlineStatus)
   const gpuSupported = useChessStore((s) => s.gpuSupported)
+  const beginnerMode = useChessStore((s) => s.beginnerMode)
 
   const [joinCode, setJoinCode] = useState('')
 
@@ -175,6 +177,24 @@ export default function ModeSelect() {
               )}
             </TabsContent>
           </Tabs>
+
+          {/* Beginner hints pre-game toggle — same flag as the in-match HUD button */}
+          <label className="mt-4 flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-amber-900/50 bg-black/20 px-3 py-2">
+            <span className="text-left">
+              <span className="flex items-center gap-1.5 text-sm font-medium text-amber-100">
+                <GraduationCap className="h-4 w-4 text-amber-400" aria-hidden />
+                Beginner hints
+              </span>
+              <span className="text-xs text-amber-200/50">
+                Glow every piece you can move; dots and rings show destinations
+              </span>
+            </span>
+            <Switch
+              checked={beginnerMode}
+              onCheckedChange={() => useChessStore.getState().toggleBeginner()}
+              aria-label="Toggle beginner hints"
+            />
+          </label>
 
           <p className="mt-4 text-center text-xs text-amber-200/40">
             {gpuSupported === null
