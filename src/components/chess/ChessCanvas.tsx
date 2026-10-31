@@ -31,6 +31,7 @@ export default function ChessCanvas() {
   const orientation = useChessStore((s) => s.orientation)
   const gameNonce = useChessStore((s) => s.gameNonce)
   const phase = useChessStore((s) => s.phase)
+  const beginnerMode = useChessStore((s) => s.beginnerMode)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -73,9 +74,13 @@ export default function ChessCanvas() {
     else scene.syncFromBoard(boardSnapshot())
   }, [moveSeq, ready])
 
+  // Selection sync. The store tracks `legalTargets` in every mode (moves
+  // must stay clickable), but the dots/rings that visualize them are a
+  // beginner aid — with hints off the scene gets no targets, which also
+  // suppresses the hover tint and pointer cursor on destination squares.
   useEffect(() => {
-    if (ready) sceneRef.current?.setSelection(selected, legalTargets)
-  }, [selected, legalTargets, ready])
+    if (ready) sceneRef.current?.setSelection(selected, beginnerMode ? legalTargets : [])
+  }, [selected, legalTargets, beginnerMode, ready])
 
   useEffect(() => {
     if (ready) sceneRef.current?.setLastMove(lastMove)

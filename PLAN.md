@@ -67,7 +67,10 @@ same store path. Deselect: right-click the selected piece or press Escape
 a store subscription recomputes `engine.movableSquares(side)` on every state
 change and feeds `scene.setMovableHints`, softly glowing each piece the local
 player can legally move (side to move in local duels, White vs AI, myColor
-online); destination dots/rings stay the primary "where can it go" aid.
+online). The destination dots/rings are beginner-only too: ChessCanvas feeds
+`scene.setSelection` empty targets when the toggle is off, so a normal game
+gives no move hints at all (the store still tracks `legalTargets` so moves
+stay clickable; the amber selected-square, last-move and check tints remain).
 
 **Data flow (online):** identical, but `game:move` first goes to the server,
 which re-validates with its own chess.js instance and fans out to both
@@ -113,7 +116,9 @@ accurate.
 ### Phase 3 — Interaction
 Pointer click vs orbit-drag disambiguation; raycast select/act; selection,
 legal-move dots, capture rings, last-move and check highlights; beginner-mode
-glow under every movable piece (toggle + localStorage persistence); deselect via
+glow under every movable piece plus destination dots/rings — all move hints
+gated behind the beginner toggle (off by default, localStorage persistence);
+deselect via
 right-click on the piece or Escape; slide/arc move animations incl. castling
 rook, en-passant pawn removal, promotion swap; promotion dialog.
 **Exit:** a full game can be played hot-seat purely through the 3D board.

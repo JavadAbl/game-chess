@@ -186,7 +186,7 @@ export default function ModeSelect() {
                 Beginner hints
               </span>
               <span className="text-xs text-amber-200/50">
-                Glow every piece you can move; dots and rings show destinations
+                Glow every piece you can move; dots and rings show destinations. Off = no move hints
               </span>
             </span>
             <Switch

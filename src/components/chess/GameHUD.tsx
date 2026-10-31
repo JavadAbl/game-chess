@@ -251,7 +251,7 @@ export default function GameHUD() {
           }`}
           onClick={() => useChessStore.getState().toggleBeginner()}
           aria-pressed={beginnerMode}
-          title="Beginner mode: glowing squares mark every piece you can legally move; dots and rings show where it can go"
+          title="Beginner hints: glowing squares mark every piece you can legally move, with dots and rings on its destination squares. Off = a clean board with no move hints (moves still work by clicking)"
         >
           <GraduationCap className="mr-1 h-4 w-4" aria-hidden />
           Beginner hints {beginnerMode ? 'on' : 'off'}
