@@ -471,20 +471,20 @@ export class ChessScene {
     const toPos = squareToWorld(detail.to)
     const fromPos = squareToWorld(detail.from)
 
-    this.pieces.delete(detail.from)
-    this.pieces.set(detail.to, moving)
-    moving.userData.square = detail.to
-
-    // Capture (en passant square differs from the destination)
+    // Resolve the captured piece BEFORE `to` is remapped to the attacker —
+    // otherwise the lookup below would find the attacker itself (it now owns
+    // the `to` entry) and the scene would kill the capturing piece instead
+    // of the victim. En passant is immune: its victim sits on another square.
     let capturedSq: string | null = null
     if (detail.captured) {
       capturedSq = detail.flags.includes('e') ? detail.to[0] + detail.from[1] : detail.to
     }
-    let capturedMesh: THREE.Mesh | null = null
-    if (capturedSq) {
-      capturedMesh = this.pieces.get(capturedSq) ?? null
-      if (capturedMesh) this.pieces.delete(capturedSq)
-    }
+    const capturedMesh = capturedSq ? (this.pieces.get(capturedSq) ?? null) : null
+    if (capturedSq && capturedMesh) this.pieces.delete(capturedSq)
+
+    this.pieces.delete(detail.from)
+    this.pieces.set(detail.to, moving)
+    moving.userData.square = detail.to
 
     const isArc = detail.piece === 'n'
     const lift = isArc ? 0.55 : 0.1
