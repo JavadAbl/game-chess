@@ -174,6 +174,28 @@ server {
 - [ ] Exactly one chess-service instance (rooms live in memory).
 - [ ] HTTPS in front of both (WebGPU requires a secure context).
 
+### 3. Docker Compose (self-hosting in one command)
+
+One command brings up the whole stack — app, chess service, and an nginx gateway that implements the marker routing above:
+
+```bash
+docker compose up --build -d
+open http://localhost:80          # or http://localhost:${APP_PORT}
+```
+
+| Service | Image | Role |
+|---|---|---|
+| `web` | `gm3d-chess` (built from the multi-stage `Dockerfile`) | Next.js standalone app, internal :3000 |
+| `chess` | same image, command `bun index.ts` | Socket.IO service, internal :3003 |
+| `proxy` | `nginx:alpine` + `nginx/chess.conf` | publishes `${APP_PORT:-80}`, routes `?XTransformPort=3003` requests to the service |
+
+- Different public port: `APP_PORT=8080 docker compose up -d`.
+- Both services start only after their healthchecks pass (`bun -e fetch …`); `docker compose ps` shows the status.
+- Rooms live in memory: run exactly one `chess` container; `docker compose down` clears them.
+- Logs: `docker compose logs -f web chess`. Stop: `docker compose down`.
+
+> The image is multi-stage: `oven/bun` installs dependencies and runs `next build`, `oven/bun:1-slim` is the ~300 MB runtime that carries both processes (chosen by command). Budget ~2 GB RAM for the `next build` step.
+
 ### Platform preview (this sandbox)
 
 Nothing to configure: the preview gateway already routes `XTransformPort` requests to the service port, and `instrumentation.ts` boots the service alongside `next dev`.
@@ -196,6 +218,9 @@ src/
 mini-services/chess-server/index.ts   Socket.IO rooms, server-side validation
 public/env/*.webp        12 equirectangular environments (cached client-side)
 instrumentation.ts       dev-only: boots the mini-service with `next dev`
+Dockerfile               multi-stage image: web + chess service in one
+compose.yml              web + chess + nginx proxy (marker routing)
+nginx/chess.conf         gateway config used by the compose proxy
 scripts/                 environment preparation pipelines (Python)
 PLAN.md                  architecture deep-dive & build milestones
 ```

@@ -1,0 +1,19 @@
+# Keep the build context lean — dependencies are installed inside the image.
+.git
+.gitignore
+node_modules
+**/node_modules
+.next
+*.log
+
+# Local/aux files that never belong in the image
+.env
+.env.*
+download
+upload
+scripts
+skills
+PLAN.md
+Dockerfile
+compose.yml
+nginx
