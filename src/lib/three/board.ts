@@ -6,23 +6,37 @@ import * as THREE from 'three/webgpu'
  */
 
 export const TINTS = {
-  selected: { color: 0xffb84d, intensity: 0.6 },
-  lastMove: { color: 0xe8a33d, intensity: 0.3 },
-  hover: { color: 0xf5e6c8, intensity: 0.22 },
-  check: { color: 0xe23d3d, intensity: 0.5 },
+  /** Dark squares: walnut → warm amber. */
+  selected: { color: 0xffb84d, intensity: 0.5, diffuse: 0.45 },
+  /** Light squares: maple → hot ember. The plain amber washes out on the light
+   * maple base, and emissive alone can never fix it — ACES filmic tone mapping
+   * compresses the additive contribution back into the paper-white shoulder.
+   * `diffuse` repaints the square's base color instead, which keeps its hue
+   * through tone mapping, so the selection is always clearly visible. */
+  selectedLight: { color: 0xff5a1f, intensity: 0.55, diffuse: 0.85 },
+  lastMove: { color: 0xe8a33d, intensity: 0.3, diffuse: 0.2 },
+  hover: { color: 0xf5e6c8, intensity: 0.22, diffuse: 0.15 },
+  check: { color: 0xe23d3d, intensity: 0.5, diffuse: 0.55 },
   /** Beginner mode: soft cool glow on pieces that currently have a legal move. */
-  hint: { color: 0x54cfe0, intensity: 0.3 },
+  hint: { color: 0x54cfe0, intensity: 0.3, diffuse: 0.2 },
 } as const
 
 export interface BoardBuild {
   group: THREE.Group
   squareMeshes: THREE.Mesh[]
-  tint: (square: string, color: number | null, intensity?: number) => void
+  tint: (square: string, color: number | null, intensity?: number, diffuse?: number) => void
   setTintIntensity: (square: string, intensity: number) => void
   resetTints: () => void
   showMarkers: (quiet: string[], captures: string[]) => void
   clearMarkers: () => void
   dispose: () => void
+}
+
+/** Mirrors the checker pattern in buildBoard(): a1 dark, h1 light. */
+export function isLightSquare(square: string): boolean {
+  const file = square.charCodeAt(0) - 97
+  const rank = parseInt(square[1], 10) - 1
+  return (file + rank) % 2 === 1
 }
 
 export function squareToWorld(square: string): THREE.Vector3 {
@@ -104,7 +118,7 @@ export function buildBoard(): BoardBuild {
   const group = new THREE.Group()
   const squareMeshes: THREE.Mesh[] = []
   const squareMats: THREE.MeshStandardMaterial[] = []
-  const tintState = new Map<string, { color: number | null; intensity: number }>()
+  const tintState = new Map<string, { color: number | null; intensity: number; diffuse: number }>()
 
   const lightMat = new THREE.MeshStandardMaterial({
     color: 0xc9b083,
@@ -133,6 +147,7 @@ export function buildBoard(): BoardBuild {
       const isLight = (rank + file) % 2 === 1
       const mat = (isLight ? lightMat : darkMat).clone()
       mat.map = (isLight ? woodTex.light : woodTex.dark)[(rank * 5 + file * 3) % 2]
+      mat.userData.baseColor = mat.color.getHex() // restored by resetTints/tint(null)
       const mesh = new THREE.Mesh(squareGeo, mat)
       const square = String.fromCharCode(97 + file) + String(rank + 1)
       const world = squareToWorld(square)
@@ -242,18 +257,26 @@ export function buildBoard(): BoardBuild {
     }
   }
 
-  function tint(square: string, color: number | null, intensity = 0): void {
+  /**
+   * Tints a square in two layers: an emissive glow (`intensity`) plus a
+   * repaint of the square's diffuse color toward `color` by `diffuse` (0..1).
+   * The diffuse layer is what keeps tints readable on light squares — additive
+   * emissive alone gets flattened by ACES tone mapping.
+   */
+  function tint(square: string, color: number | null, intensity = 0, diffuse = 0): void {
     const idx = squareMeshes.findIndex((m) => m.userData.square === square)
     if (idx === -1) return
     const mat = squareMats[idx]
     if (color === null) {
       mat.emissive.setHex(0x000000)
       mat.emissiveIntensity = 0
+      mat.color.setHex(mat.userData.baseColor as number)
       tintState.delete(square)
     } else {
       mat.emissive.setHex(color)
       mat.emissiveIntensity = intensity
-      tintState.set(square, { color, intensity })
+      mat.color.setHex(mat.userData.baseColor as number).lerp(new THREE.Color(color), diffuse)
+      tintState.set(square, { color, intensity, diffuse })
     }
   }
 
@@ -269,6 +292,7 @@ export function buildBoard(): BoardBuild {
     for (const mat of squareMats) {
       mat.emissive.setHex(0x000000)
       mat.emissiveIntensity = 0
+      mat.color.setHex(mat.userData.baseColor as number)
     }
     tintState.clear()
   }

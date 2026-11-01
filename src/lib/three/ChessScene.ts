@@ -1,7 +1,7 @@
 import * as THREE from 'three/webgpu'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
-import { buildBoard, squareToWorld, TINTS, type BoardBuild } from './board'
+import { buildBoard, isLightSquare, squareToWorld, TINTS, type BoardBuild } from './board'
 import { createPieceGeometry, createPieceMesh, type PieceColor } from './pieces'
 import { loadEquirect, pickRandomEnv } from './environments'
 import {
@@ -271,6 +271,12 @@ export class ChessScene {
       const pulse = 0.4 + 0.25 * Math.sin(this.elapsed * 6)
       this.board.setTintIntensity(this.checkSq, pulse)
     }
+    // Gentle pulse so the selection stays detectable on any square color; the
+    // static amber used to disappear against light maple squares.
+    if (this.selectedSq && this.selectedSq !== this.checkSq) {
+      const base = isLightSquare(this.selectedSq) ? TINTS.selectedLight : TINTS.selected
+      this.board.setTintIntensity(this.selectedSq, base.intensity * (0.85 + 0.15 * Math.sin(this.elapsed * 5)))
+    }
     void this.renderer.render(this.scene, this.camera)
   }
 
@@ -356,20 +362,23 @@ export class ChessScene {
   private refreshTints(): void {
     this.board.resetTints()
     for (const sq of this.movableSqs) {
-      if (sq !== this.selectedSq) this.board.tint(sq, TINTS.hint.color, TINTS.hint.intensity)
+      if (sq !== this.selectedSq) this.board.tint(sq, TINTS.hint.color, TINTS.hint.intensity, TINTS.hint.diffuse)
     }
     if (this.lastMoveSqs) {
-      this.board.tint(this.lastMoveSqs.from, TINTS.lastMove.color, TINTS.lastMove.intensity)
-      this.board.tint(this.lastMoveSqs.to, TINTS.lastMove.color, TINTS.lastMove.intensity)
+      this.board.tint(this.lastMoveSqs.from, TINTS.lastMove.color, TINTS.lastMove.intensity, TINTS.lastMove.diffuse)
+      this.board.tint(this.lastMoveSqs.to, TINTS.lastMove.color, TINTS.lastMove.intensity, TINTS.lastMove.diffuse)
     }
     if (this.checkSq) {
-      this.board.tint(this.checkSq, TINTS.check.color, TINTS.check.intensity)
+      this.board.tint(this.checkSq, TINTS.check.color, TINTS.check.intensity, TINTS.check.diffuse)
     }
     if (this.selectedSq) {
-      this.board.tint(this.selectedSq, TINTS.selected.color, TINTS.selected.intensity)
+      // Amber reads well on dark walnut but washes out on light maple — use a
+      // hotter ember tint there so the selected square always stands out.
+      const sel = isLightSquare(this.selectedSq) ? TINTS.selectedLight : TINTS.selected
+      this.board.tint(this.selectedSq, sel.color, sel.intensity, sel.diffuse)
     }
     if (this.hovered && this.targetSqs.includes(this.hovered) && this.hovered !== this.selectedSq) {
-      this.board.tint(this.hovered, TINTS.hover.color, TINTS.hover.intensity)
+      this.board.tint(this.hovered, TINTS.hover.color, TINTS.hover.intensity, TINTS.hover.diffuse)
     }
   }
 
@@ -502,7 +511,7 @@ export class ChessScene {
       },
     })
 
-    if (capturedMesh) {
+    if (capturedSq && capturedMesh) {
       const mesh = capturedMesh
       const capPos = squareToWorld(capturedSq)
       const burstColor = detail.color === 'w' ? BLACK_BURST : WHITE_BURST
