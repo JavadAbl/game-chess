@@ -29,7 +29,7 @@
 
 ## Getting started (local development)
 
-**Prerequisites:** [Bun](https://bun.sh) 1.1+ (or Node 20+ with `npx tsx` as the service runner) and a modern browser — WebGPU-capable Chrome/Edge 113+ for the full pipeline, any WebGL2 browser for the fallback.
+**Prerequisites:** [Bun](https://bun.sh) 1.1+ **or** Node.js 20+ (both fully supported — see [Node.js instead of Bun](#nodejs-instead-of-bun)) and a modern browser — WebGPU-capable Chrome/Edge 113+ for the full pipeline, any WebGL2 browser for the fallback.
 
 ```bash
 # 1. install
@@ -48,6 +48,18 @@ bun mini-services/chess-server/index.ts     # or: npx tsx mini-services/chess-se
 Open **http://localhost:3000**. Lint with `bun run lint`.
 
 > The `.env` file only carries a scaffold `DATABASE_URL` (Prisma) — the chess game itself needs no database.
+
+### Node.js instead of Bun
+
+Bun is **not required** — it is only this project's default runner (it executes TypeScript directly, so the Socket.IO service needs no compile step). The game code itself is plain Next.js/React/TypeScript with zero Bun APIs, and every gameplay part (Three.js renderer, AI Web Worker, socket client) runs in your browser anyway. All of the above works identically with Node 20+:
+
+```bash
+npm install
+npm run dev                                   # app on :3000
+npx tsx mini-services/chess-server/index.ts   # only if NEXT_SPAWN_SERVICES=0
+```
+
+`instrumentation.ts` detects which runtime is available and boots the service with Bun or `npx tsx` accordingly (tsx ships as a devDependency — no download).
 
 ---
 
@@ -96,6 +108,15 @@ bun install
 bun run build          # next build + copies static/public into .next/standalone
 PORT=3000 bun run start
 bun mini-services/chess-server/index.ts   # keep alive with systemd/pm2/your supervisor
+```
+
+On a Node-only server, swap the runner — everything else stays the same:
+
+```bash
+npm install
+npm run build
+PORT=3000 npm run start:node              # NODE_ENV=production node .next/standalone/server.js
+npx tsx mini-services/chess-server/index.ts
 ```
 
 `instrumentation.ts` is a no-op in production — it never spawns the service there.

@@ -20,15 +20,24 @@ export async function register(): Promise<void> {
   const servicePath = path.join(process.cwd(), 'mini-services', 'chess-server', 'index.ts')
   if (!fs.existsSync(servicePath)) return
 
-  const { spawn } = await import('node:child_process')
-  const runner = fs.existsSync(path.join(process.cwd(), 'bun.lock')) ? 'bun' : 'tsx'
+  const { spawn, spawnSync } = await import('node:child_process')
+  // Bun executes TypeScript directly; on Node-only machines fall back to
+  // `npx tsx` (tsx is a devDependency, so it resolves locally, no download).
+  const hasBun = spawnSync('bun', ['--version'], { stdio: 'ignore' }).status === 0
+  const runner = hasBun ? 'bun' : 'npx'
+  const args = hasBun ? [servicePath] : ['tsx', servicePath]
   // detached + unref: the service outlives this hook; crashes are logged by
   // the platform. If port 3003 is taken the child exits silently — the
   // already-running instance keeps serving, which is exactly what we want.
-  const child = spawn(runner, [servicePath], {
+  const child = spawn(runner, args, {
     detached: true,
     stdio: 'ignore',
     cwd: process.cwd(),
+  })
+  child.on('error', () => {
+    console.log(
+      '[instrumentation] could not auto-boot the chess mini-service — start it manually: npx tsx mini-services/chess-server/index.ts',
+    )
   })
   child.unref()
   console.log(`[instrumentation] booted chess mini-service via ${runner} (pid ${child.pid})`)
