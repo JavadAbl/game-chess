@@ -175,6 +175,8 @@ io.on('connection', (socket: Socket) => {
       socket.join(code)
       ack?.({ ok: true, code, token: room.black.token, color: 'b' })
       io.to(code).emit('game:start', { fen: room.chess.fen() })
+      // Everyone except the joiner (i.e. the host) marks the opponent online.
+      socket.to(code).emit('opponent:joined', {})
       console.log(`Room ${code}: black joined (${socket.id})`)
     },
   )
@@ -251,7 +253,10 @@ io.on('connection', (socket: Socket) => {
       }
       const st = statusOf(room)
       if (st.over) room.status = 'finished'
+      // `by` lets the sender skip its own optimistic move (already applied
+      // locally); the other client applies it as the authoritative update.
       io.to(code).emit('game:move', {
+        by: socket.id,
         move: { from: move.from, to: move.to, promotion: move.promotion },
         fen: room.chess.fen(),
         san: move.san,

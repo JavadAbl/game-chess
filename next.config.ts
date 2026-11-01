@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  /* config options here */
+  /* instrumentation.ts boots the chess mini-service in dev — see README */
   typescript: {
     ignoreBuildErrors: true,
   },

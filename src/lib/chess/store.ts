@@ -32,13 +32,15 @@ const AI_COLOR: SquareColor = 'b'
 
 export type OnlineStatus = 'idle' | 'waiting' | 'connected'
 
-interface OnlineMovePayload {
+export interface OnlineMovePayload {
   move: { from: string; to: string; promotion?: string }
   fen: string
   san: string
   checkSquare: string | null
   over: boolean
   result: { winner: SquareColor | null; reason: string } | null
+  /** Socket id of the player who played the move — lets the sender skip its own echo. */
+  by?: string
 }
 
 export interface RestoreSessionArgs {
@@ -464,6 +466,10 @@ export const useChessStore = create<ChessState>()((set, get) => ({
   applyRemoteMove: (payload: OnlineMovePayload) => {
     const state = get()
     if (state.mode !== 'online') return
+    // Our own echo from the server broadcast — the move was already applied
+    // optimistically when it was played; re-applying would throw and force a
+    // pointless full-board resync.
+    if (payload.by && payload.by === getSocket().id) return
     try {
       const mv = applyLocalMove(payload.move.from, payload.move.to, payload.move.promotion)
       onMoveApplied(toDetail(mv), set, get)
@@ -579,6 +585,38 @@ function playMove(from: string, to: string, promotion: string | undefined, set: 
   try {
     const mv = applyLocalMove(from, to, promotion)
     onMoveApplied(toDetail(mv), set, get)
+    // Online: report the (already applied) move to the server, which
+    // re-validates it against its own chess.js and broadcasts to the room.
+    // Remote moves arrive via applyRemoteMove and never reach this emit.
+    const st = get()
+    if (st.mode === 'online' && st.roomCode && st.roomToken) {
+      const { roomCode, roomToken } = st
+      getSocket().emit(
+        'game:move',
+        { code: roomCode, token: roomToken, from, to, promotion },
+        (ack: { ok: boolean; error?: string }) => {
+          if (ack?.ok) return
+          // Rejected by the server (desync) — rebuild from the authoritative
+          // move list instead of drifting on a bad local position.
+          getSocket().emit(
+            'room:rejoin',
+            { code: roomCode, token: roomToken },
+            (rAck: { ok: boolean; color?: SquareColor; fen?: string; sans?: string[]; opponentOnline?: boolean }) => {
+              if (rAck.ok && rAck.color && rAck.fen) {
+                useChessStore.getState().restoreOnlineSession({
+                  code: roomCode,
+                  token: roomToken,
+                  color: rAck.color,
+                  fen: rAck.fen,
+                  sans: rAck.sans ?? [],
+                  opponentOnline: rAck.opponentOnline ?? false,
+                })
+              }
+            },
+          )
+        },
+      )
+    }
   } catch {
     sfx.illegal()
     set({ selected: null, legalTargets: [] })

@@ -62,3 +62,6 @@ examples/
 tests/
 s_*.png
 skill*
+
+# agent tooling output
+tool-results/
